@@ -1,1 +1,4 @@
-# filmes
+# Catálogo de Filmes
+
+Grupo:
+- Mariana Gabriely
