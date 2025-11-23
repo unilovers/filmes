@@ -50,3 +50,27 @@ CREATE TABLE IF NOT EXISTS genero_filme (
     FOREIGN KEY (id_filme) REFERENCES filmes(id_filme) ON DELETE CASCADE,
     FOREIGN KEY (id_genero) REFERENCES generos(id_genero) ON DELETE CASCADE
     );
+
+-- Tabela de Sessões
+CREATE TABLE IF NOT EXISTS sessoes (
+    id_sessao BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id_filme BIGINT NOT NULL,
+    id_sala BIGINT NOT NULL,
+    data_hora TIMESTAMP NOT NULL,
+    preco_base DECIMAL(10,2),
+    tipo_exibicao VARCHAR(20) DEFAULT '2D',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_filme) REFERENCES filmes(id_filme) ON DELETE CASCADE,
+    FOREIGN KEY (id_sala) REFERENCES salas(id_sala) ON DELETE CASCADE
+    );
+
+-- Tabela de Assentos por Sessão
+CREATE TABLE IF NOT EXISTS sessao_assento (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id_sessao BIGINT NOT NULL,
+    id_assento INT NOT NULL,
+    reservado BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (id_sessao) REFERENCES sessoes(id_sessao) ON DELETE CASCADE,
+    UNIQUE (id_sessao, id_assento)
+    );
