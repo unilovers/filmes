@@ -1,7 +1,6 @@
 package com.unilopers.cinema.model;
 
 import jakarta.persistence.*;
-import com.fasterxml.jackson.annotation.JsonBackReference;  // ✅ ADICIONAR
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,37 +17,43 @@ public class Genero {
     private String nome;
 
     @ManyToMany(mappedBy = "generos")
-    @JsonBackReference  // ✅ CRÍTICO: Adicionar isso
     private Set<Filme> filmes = new HashSet<>();
 
     public Genero() {}
 
     public Genero(String nome) {
+
         this.nome = nome;
     }
 
     // Getters e Setters
     public Long getId() {
+
         return id;
     }
 
     public void setId(Long id) {
+
         this.id = id;
     }
 
     public String getNome() {
+
         return nome;
     }
 
     public void setNome(String nome) {
+
         this.nome = nome;
     }
 
     public Set<Filme> getFilmes() {
+
         return filmes;
     }
 
     public void setFilmes(Set<Filme> filmes) {
+
         this.filmes = filmes;
     }
 }

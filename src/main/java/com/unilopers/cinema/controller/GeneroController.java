@@ -1,5 +1,8 @@
 package com.unilopers.cinema.controller;
 
+import com.unilopers.cinema.dto.request.CreateGeneroDTO;
+import com.unilopers.cinema.dto.response.GeneroDTO;
+import com.unilopers.cinema.mapper.GeneroMapper;
 import com.unilopers.cinema.model.Genero;
 import com.unilopers.cinema.repository.GeneroRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,56 +21,59 @@ public class GeneroController {
     @Autowired
     private GeneroRepository generoRepository;
 
+    @Autowired
+    private GeneroMapper generoMapper;
+
     @GetMapping
-    public List<Genero> list() {
-        return generoRepository.findAll();
+    public List<GeneroDTO> list() {
+        return generoMapper.toDTOList(generoRepository.findAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Genero> read(@PathVariable Long id) {
-        Optional<Genero> genero = generoRepository.findById(id);
-        return genero.map(ResponseEntity::ok)
+    public ResponseEntity<GeneroDTO> read(@PathVariable Long id) {
+        return generoRepository.findById(id)
+                .map(generoMapper::toDTO)
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<Genero> create(@RequestBody Genero genero) {
-        Optional<Genero> existing = generoRepository.findByNome(genero.getNome());
+    public ResponseEntity<GeneroDTO> create(@RequestBody CreateGeneroDTO dto) {
+        Optional<Genero> existing = generoRepository.findByNome(dto.getNome());
         if (existing.isPresent()) {
             return ResponseEntity.badRequest().build();
         }
 
+        Genero genero = generoMapper.toEntity(dto);
         Genero saved = generoRepository.save(genero);
+
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(saved.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(saved);
+        return ResponseEntity.created(location).body(generoMapper.toDTO(saved));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Genero> update(@PathVariable Long id, @RequestBody Genero details) {
+    public ResponseEntity<GeneroDTO> update(@PathVariable Long id, @RequestBody CreateGeneroDTO dto) {
         Optional<Genero> opt = generoRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         Genero genero = opt.get();
-        if (details.getNome() != null) {
-            genero.setNome(details.getNome());
-        }
-
+        generoMapper.updateEntity(genero, dto);
         Genero saved = generoRepository.save(genero);
-        return ResponseEntity.ok(saved);
+
+        return ResponseEntity.ok(generoMapper.toDTO(saved));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        Optional<Genero> opt = generoRepository.findById(id);
-        if (opt.isEmpty()) {
-            return ResponseEntity.notFound().build();
+        if (generoRepository.existsById(id)) {
+            generoRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
         }
-        generoRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.notFound().build();
     }
 }
