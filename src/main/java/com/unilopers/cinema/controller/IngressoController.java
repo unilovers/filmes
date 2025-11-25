@@ -1,8 +1,12 @@
 package com.unilopers.cinema.controller;
 
+import com.unilopers.cinema.dto.request.ComprarIngressoDTO;
+import com.unilopers.cinema.dto.response.IngressoDTO;
+import com.unilopers.cinema.mapper.IngressoMapper;
 import com.unilopers.cinema.model.*;
 import com.unilopers.cinema.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -19,37 +23,42 @@ public class IngressoController {
 
     @Autowired
     private IngressoRepository ingressoRepository;
+
     @Autowired
     private UsuarioRepository usuarioRepository;
+
     @Autowired
     private SessaoRepository sessaoRepository;
+
     @Autowired
     private TipoIngressoRepository tipoIngressoRepository;
+
     @Autowired
     private SessaoAssentoRepository sessaoAssentoRepository;
 
+    @Autowired
+    private IngressoMapper ingressoMapper;
+
     @GetMapping
-    public List<Ingresso> list() { return ingressoRepository.findAll(); }
+    public List<IngressoDTO> list() {
+        List<Ingresso> ingressos = ingressoRepository.findAll();
+        return ingressoMapper.toDTOList(ingressos);
+    }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<?> create(@RequestBody ComprarIngressoDTO dto) {
         try {
-            Long idUsuario = Long.valueOf(request.get("idUsuario").toString());
-            Long idSessao = Long.valueOf(request.get("idSessao").toString());
-            Long idTipoIngresso = Long.valueOf(request.get("idTipoIngresso").toString());
-            Integer numeroAssento = Integer.valueOf(request.get("numeroAssento").toString());
-
-            Optional<Usuario> usuario = usuarioRepository.findById(idUsuario);
-            Optional<Sessao> sessao = sessaoRepository.findById(idSessao);
-            Optional<TipoIngresso> tipoIngresso = tipoIngressoRepository.findById(idTipoIngresso);
+            Optional<Usuario> usuario = usuarioRepository.findById(dto.getIdUsuario());
+            Optional<Sessao> sessao = sessaoRepository.findById(dto.getIdSessao());
+            Optional<TipoIngresso> tipoIngresso = tipoIngressoRepository.findById(dto.getIdTipoIngresso());
 
             if (usuario.isEmpty() || sessao.isEmpty() || tipoIngresso.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("erro", "Dados inválidos"));
             }
 
-            // === VALIDAÇÃO DE VENDA (Compatibilidade) ===
-            String categoriaSessao = sessao.get().getTipoExibicao(); // ex: 3D
-            String categoriaIngresso = tipoIngresso.get().getCategoriaTecnica(); // ex: 2D
+            // Valida compatibilidade técnica
+            String categoriaSessao = sessao.get().getTipoExibicao();
+            String categoriaIngresso = tipoIngresso.get().getCategoriaTecnica();
 
             if (!categoriaSessao.equalsIgnoreCase(categoriaIngresso)) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -57,8 +66,8 @@ public class IngressoController {
                 ));
             }
 
-            // Verificar disponibilidade do assento
-            Optional<SessaoAssento> assento = sessaoAssentoRepository.findBySessaoAndIdAssento(sessao.get(), numeroAssento);
+            // Verifica disponibilidade do assento
+            Optional<SessaoAssento> assento = sessaoAssentoRepository.findBySessaoAndIdAssento(sessao.get(), dto.getNumeroAssento());
             if (assento.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("erro", "Assento não existe"));
             }
@@ -66,18 +75,32 @@ public class IngressoController {
                 return ResponseEntity.badRequest().body(Map.of("erro", "Assento já ocupado"));
             }
 
-            // Reserva e Salva
+            // Reserva assento
             assento.get().setReservado(true);
             sessaoAssentoRepository.save(assento.get());
 
+            // Calcula valor final
             BigDecimal valorFinal = sessao.get().getPrecoBase().multiply(tipoIngresso.get().getFatorPreco());
 
-            Ingresso ingresso = new Ingresso(usuario.get(), sessao.get(), tipoIngresso.get(), numeroAssento, valorFinal);
+            // Cria ingresso
+            Ingresso ingresso = new Ingresso(
+                    usuario.get(),
+                    sessao.get(),
+                    tipoIngresso.get(),
+                    dto.getNumeroAssento(),
+                    valorFinal
+            );
+
             Ingresso saved = ingressoRepository.save(ingresso);
+            IngressoDTO responseDTO = ingressoMapper.toDTO(saved);
 
             URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                    .path("/{id}").buildAndExpand(saved.getId()).toUri();
-            return ResponseEntity.created(location).body(saved);
+                    .path("/{id}")
+                    .buildAndExpand(saved.getId())
+                    .toUri();
+
+            return ResponseEntity.created(location).body(responseDTO);
+
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
         }
