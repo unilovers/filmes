@@ -1,6 +1,9 @@
 package com.unilopers.cinema.controller;
 
-import com.unilopers.cinema.model.*;
+import com.unilopers.cinema.dto.request.CreateTipoIngressoDTO;
+import com.unilopers.cinema.dto.response.TipoIngressoDTO;
+import com.unilopers.cinema.mapper.TipoIngressoMapper;
+import com.unilopers.cinema.model.TipoIngresso;
 import com.unilopers.cinema.repository.TipoIngressoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -13,64 +16,64 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/tipos-ingresso")
-class TipoIngressoController {
+public class TipoIngressoController {
 
     @Autowired
     private TipoIngressoRepository tipoIngressoRepository;
 
+    @Autowired
+    private TipoIngressoMapper tipoIngressoMapper;
+
     @GetMapping
-    public List<TipoIngresso> list() {
-        return tipoIngressoRepository.findAll();
+    public List<TipoIngressoDTO> list() {
+        return tipoIngressoMapper.toDTOList(tipoIngressoRepository.findAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TipoIngresso> read(@PathVariable Long id) {
-        Optional<TipoIngresso> tipo = tipoIngressoRepository.findById(id);
-        return tipo.map(ResponseEntity::ok)
+    public ResponseEntity<TipoIngressoDTO> read(@PathVariable Long id) {
+        return tipoIngressoRepository.findById(id)
+                .map(tipoIngressoMapper::toDTO)
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<TipoIngresso> create(@RequestBody TipoIngresso tipo) {
-        Optional<TipoIngresso> existing = tipoIngressoRepository.findByDescricao(tipo.getDescricao());
+    public ResponseEntity<TipoIngressoDTO> create(@RequestBody CreateTipoIngressoDTO dto) {
+        Optional<TipoIngresso> existing = tipoIngressoRepository.findByDescricao(dto.getDescricao());
         if (existing.isPresent()) {
             return ResponseEntity.badRequest().build();
         }
 
+        TipoIngresso tipo = tipoIngressoMapper.toEntity(dto);
         TipoIngresso saved = tipoIngressoRepository.save(tipo);
+
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(saved.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(saved);
+        return ResponseEntity.created(location).body(tipoIngressoMapper.toDTO(saved));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TipoIngresso> update(@PathVariable Long id, @RequestBody TipoIngresso details) {
+    public ResponseEntity<TipoIngressoDTO> update(@PathVariable Long id, @RequestBody CreateTipoIngressoDTO dto) {
         Optional<TipoIngresso> opt = tipoIngressoRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         TipoIngresso tipo = opt.get();
-        if (details.getDescricao() != null) {
-            tipo.setDescricao(details.getDescricao());
-        }
-        if (details.getFatorPreco() != null) {
-            tipo.setFatorPreco(details.getFatorPreco());
-        }
-
+        tipoIngressoMapper.updateEntity(tipo, dto);
         TipoIngresso saved = tipoIngressoRepository.save(tipo);
-        return ResponseEntity.ok(saved);
+
+        return ResponseEntity.ok(tipoIngressoMapper.toDTO(saved));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        Optional<TipoIngresso> opt = tipoIngressoRepository.findById(id);
-        if (opt.isEmpty()) {
-            return ResponseEntity.notFound().build();
+        if (tipoIngressoRepository.existsById(id)) {
+            tipoIngressoRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
         }
-        tipoIngressoRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.notFound().build();
     }
 }
