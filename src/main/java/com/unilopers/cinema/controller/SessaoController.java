@@ -1,5 +1,8 @@
 package com.unilopers.cinema.controller;
 
+import com.unilopers.cinema.dto.request.CreateSessaoDTO;
+import com.unilopers.cinema.dto.response.SessaoDTO;
+import com.unilopers.cinema.mapper.SessaoMapper;
 import com.unilopers.cinema.model.*;
 import com.unilopers.cinema.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,95 +10,99 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.math.BigDecimal;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/sessoes")
-
 public class SessaoController {
 
     @Autowired
     private SessaoRepository sessaoRepository;
+
     @Autowired
     private FilmeRepository filmeRepository;
+
     @Autowired
     private SalaRepository salaRepository;
+
     @Autowired
     private SessaoAssentoRepository sessaoAssentoRepository;
 
-    // INJEÇÃO NOVA
     @Autowired
     private HomologacaoRepository homologacaoRepository;
 
+    @Autowired
+    private SessaoMapper sessaoMapper;
+
     @GetMapping
-    public List<Sessao> list() { return sessaoRepository.findAll(); }
+    public List<SessaoDTO> list() {
+        List<Sessao> sessoes = sessaoRepository.findAll();
+        return sessaoMapper.toDTOList(sessoes);
+    }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Sessao> read(@PathVariable Long id) {
+    public ResponseEntity<SessaoDTO> read(@PathVariable Long id) {
         Optional<Sessao> sessao = sessaoRepository.findById(id);
-        return sessao.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return sessao
+                .map(sessaoMapper::toDTO)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<?> create(@RequestBody CreateSessaoDTO dto) {
         try {
-            Long idFilme = Long.valueOf(request.get("idFilme").toString());
-            Long idSala = Long.valueOf(request.get("idSala").toString());
-            String dataHora = request.get("dataHora").toString();
-            BigDecimal precoBase = new BigDecimal(request.get("precoBase").toString());
-            // Padrão 2D se não vier nada
-            String tipoExibicao = request.getOrDefault("tipoExibicao", "2D").toString();
-
-            Optional<Filme> filme = filmeRepository.findById(idFilme);
-            Optional<Sala> sala = salaRepository.findById(idSala);
+            Optional<Filme> filme = filmeRepository.findById(dto.getIdFilme());
+            Optional<Sala> sala = salaRepository.findById(dto.getIdSala());
 
             if (filme.isEmpty() || sala.isEmpty()) {
                 return ResponseEntity.badRequest().body("Filme ou Sala inválidos");
             }
 
-            // === VALIDAÇÃO DE HARDWARE (Homologação) ===
+            // Valida homologação
             boolean isHomologado = homologacaoRepository.existsByFilmeAndSalaAndRequisitoTecnicoAndStatusValidacao(
-                    filme.get(), sala.get(), tipoExibicao, "Aprovado"
+                    filme.get(), sala.get(), dto.getTipoExibicao(), "Aprovado"
             );
 
             if (!isHomologado) {
                 return ResponseEntity.badRequest().body(
-                        "ERRO: Sala não homologada (aprovada tecnicamente) para exibir este filme em " + tipoExibicao
+                        "Sala não homologada para exibir este filme em " + dto.getTipoExibicao()
                 );
             }
 
             Sessao sessao = new Sessao();
             sessao.setFilme(filme.get());
             sessao.setSala(sala.get());
-            sessao.setDataHora(java.time.LocalDateTime.parse(dataHora));
-            sessao.setPrecoBase(precoBase);
-            sessao.setTipoExibicao(tipoExibicao); // Salva o tipo
+            sessao.setDataHora(dto.getDataHora());
+            sessao.setPrecoBase(dto.getPrecoBase());
+            sessao.setTipoExibicao(dto.getTipoExibicao());
 
             Sessao saved = sessaoRepository.save(sessao);
 
-            // Gera assentos (Estoque)
             for (int i = 1; i <= sala.get().getCapacidade(); i++) {
                 SessaoAssento assento = new SessaoAssento(saved, i, false);
                 sessaoAssentoRepository.save(assento);
             }
 
+            SessaoDTO responseDTO = sessaoMapper.toDTO(saved);
+
             URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                    .path("/{id}").buildAndExpand(saved.getId()).toUri();
-            return ResponseEntity.created(location).body(saved);
+                    .path("/{id}")
+                    .buildAndExpand(saved.getId())
+                    .toUri();
+
+            return ResponseEntity.created(location).body(responseDTO);
 
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Erro: " + e.getMessage());
         }
     }
 
-    // Métodos PUT e DELETE seguem padrão...
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if(sessaoRepository.existsById(id)) {
+        if (sessaoRepository.existsById(id)) {
             sessaoRepository.deleteById(id);
             return ResponseEntity.noContent().build();
         }
