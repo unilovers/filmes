@@ -1,56 +1,45 @@
-package com.unilopers.cinema.model;
+package com.unilopers.cinema.dto.response;
 
-import jakarta.persistence.*;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 
-@Entity
-@Table(name = "salas")
-public class Sala {
+@JacksonXmlRootElement(localName = "sala")
+public class SalaDTO {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_sala")
+    @JacksonXmlProperty(localName = "id")
     private Long id;
 
-    @Column(name = "nome")
+    @JacksonXmlProperty(localName = "nome")
     private String nome;
 
-    @Column(name = "capacidade")
+    @JacksonXmlProperty(localName = "capacidade")
     private Integer capacidade;
 
-    public Sala() {}
+    public SalaDTO() {}
 
-    public Sala(String nome, Integer capacidade) {
+    public SalaDTO(Long id, String nome, Integer capacidade) {
+        this.id = id;
         this.nome = nome;
         this.capacidade = capacidade;
     }
 
+    // Getters e Setters
     public Long getId() {
-
         return id;
     }
-
     public void setId(Long id) {
-
         this.id = id;
     }
-
     public String getNome() {
-
         return nome;
     }
-
     public void setNome(String nome) {
-
         this.nome = nome;
     }
-
     public Integer getCapacidade() {
-
         return capacidade;
     }
-
     public void setCapacidade(Integer capacidade) {
-
         this.capacidade = capacidade;
     }
 }
