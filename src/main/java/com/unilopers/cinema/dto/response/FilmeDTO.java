@@ -1,54 +1,48 @@
-package com.unilopers.cinema.model;
+package com.unilopers.cinema.dto.response;
 
-import jakarta.persistence.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 
-@Entity
-@Table(name = "filmes")
-public class Filme {
+@JacksonXmlRootElement(localName = "filme")
+public class FilmeDTO {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_filme")
+    @JacksonXmlProperty(localName = "id")
     private Long id;
 
-    @Column(name = "titulo")
+    @JacksonXmlProperty(localName = "titulo")
     private String titulo;
 
-    @Column(name = "duracao_min")
+    @JacksonXmlProperty(localName = "duracaoMin")
     private Integer duracaoMin;
 
-    @Column(name = "ano")
+    @JacksonXmlProperty(localName = "ano")
     private Integer ano;
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @JacksonXmlProperty(localName = "createdAt")
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at")
+    @JacksonXmlProperty(localName = "updatedAt")
     private LocalDateTime updatedAt;
 
-    @ManyToMany
-    @JoinTable(
-            name = "genero_filme",
-            joinColumns = @JoinColumn(name = "id_filme"),
-            inverseJoinColumns = @JoinColumn(name = "id_genero")
-    )
+    @JacksonXmlElementWrapper(localName = "generos")
+    @JacksonXmlProperty(localName = "genero")
+    private List<GeneroDTO> generos;
 
-    private Set<Genero> generos = new HashSet<>();
+    public FilmeDTO() {}
 
-    public Filme() {}
-
-    public Filme(String titulo, Integer duracaoMin, Integer ano) {
+    public FilmeDTO(Long id, String titulo, Integer duracaoMin, Integer ano,
+                    LocalDateTime createdAt, LocalDateTime updatedAt, List<GeneroDTO> generos) {
+        this.id = id;
         this.titulo = titulo;
         this.duracaoMin = duracaoMin;
         this.ano = ano;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.generos = generos;
     }
 
     // Getters e Setters
@@ -100,11 +94,11 @@ public class Filme {
         this.updatedAt = updatedAt;
     }
 
-    public Set<Genero> getGeneros() {
+    public List<GeneroDTO> getGeneros() {
         return generos;
     }
 
-    public void setGeneros(Set<Genero> generos) {
+    public void setGeneros(List<GeneroDTO> generos) {
         this.generos = generos;
     }
 }

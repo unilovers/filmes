@@ -1,5 +1,8 @@
 package com.unilopers.cinema.controller;
 
+import com.unilopers.cinema.dto.request.CreateFilmeDTO;
+import com.unilopers.cinema.dto.response.FilmeDTO;
+import com.unilopers.cinema.mapper.FilmeMapper;
 import com.unilopers.cinema.model.Filme;
 import com.unilopers.cinema.repository.FilmeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,55 +21,61 @@ public class FilmeController {
     @Autowired
     private FilmeRepository filmeRepository;
 
+    @Autowired
+    private FilmeMapper filmeMapper;
+
     @GetMapping
-    public List<Filme> list() {
-        return filmeRepository.findAll();
+    public List<FilmeDTO> list() {
+        List<Filme> filmes = filmeRepository.findAll();
+        return filmeMapper.toDTOList(filmes);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Filme> read(@PathVariable Long id) {
+    public ResponseEntity<FilmeDTO> read(@PathVariable Long id) {
         Optional<Filme> filme = filmeRepository.findById(id);
-        return filme.map(ResponseEntity::ok)
+        return filme
+                .map(filmeMapper::toDTO)
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<Filme> create(@RequestBody Filme filme) {
-        // Verifica se já existe filme com mesmo título
-        Optional<Filme> existing = filmeRepository.findByTitulo(filme.getTitulo());
+    public ResponseEntity<FilmeDTO> create(@RequestBody CreateFilmeDTO dto) {
+        Optional<Filme> existing = filmeRepository.findByTitulo(dto.getTitulo());
         if (existing.isPresent()) {
             return ResponseEntity.badRequest().build();
         }
 
+        // Converte DTO para Entity
+        Filme filme = filmeMapper.toEntity(dto);
+
         Filme saved = filmeRepository.save(filme);
+
+        // Converte para DTO de resposta
+        FilmeDTO responseDTO = filmeMapper.toDTO(saved);
+
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(saved.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(saved);
+
+        return ResponseEntity.created(location).body(responseDTO);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Filme> update(@PathVariable Long id, @RequestBody Filme details) {
+    public ResponseEntity<FilmeDTO> update(@PathVariable Long id, @RequestBody CreateFilmeDTO dto) {
         Optional<Filme> opt = filmeRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         Filme filme = opt.get();
-
-        if (details.getTitulo() != null) {
-            filme.setTitulo(details.getTitulo());
-        }
-        if (details.getDuracaoMin() != null) {
-            filme.setDuracaoMin(details.getDuracaoMin());
-        }
-        if (details.getAno() != null) {
-            filme.setAno(details.getAno());
-        }
+        filmeMapper.updateEntity(filme, dto);
 
         Filme saved = filmeRepository.save(filme);
-        return ResponseEntity.ok(saved);
+        FilmeDTO responseDTO = filmeMapper.toDTO(saved);
+
+        return ResponseEntity.ok(responseDTO);
     }
 
     @DeleteMapping("/{id}")
